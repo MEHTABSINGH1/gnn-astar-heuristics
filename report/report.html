@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Do GNNs Learn Better A* Heuristics? – Mehtab Singh</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm; }
+  body { font-family: Cambria, "Times New Roman", serif; font-size: 10.2pt; line-height: 1.38; color: #111; margin: 0; }
+  h1 { font-size: 16pt; text-align: center; margin: 0 0 4px; line-height: 1.2; }
+  .authors { text-align: center; font-size: 10pt; }
+  .affil { text-align: center; font-size: 9pt; color: #444; margin-bottom: 10px; }
+  .abstract { margin: 0 24px 10px; font-size: 9.6pt; text-align: justify; }
+  .abstract b:first-child { display: block; text-align: center; margin-bottom: 2px; }
+  h2 { font-size: 11.5pt; margin: 12px 0 4px; border-bottom: 1px solid #999; padding-bottom: 1px; }
+  p { margin: 4px 0; text-align: justify; }
+  table { page-break-inside: avoid; border-collapse: collapse; margin: 6px auto; font-size: 8.8pt; }
+  th, td { padding: 2px 7px; text-align: center; border-bottom: 1px solid #ddd; }
+  thead th { border-top: 1.5px solid #222; border-bottom: 1px solid #222; }
+  tbody tr:last-child td { border-bottom: 1.5px solid #222; }
+  td:first-child, th:first-child { text-align: left; }
+  .cap { font-size: 8.8pt; color: #333; text-align: center; margin: 2px 8px 8px; }
+  figure { margin: 6px 0; text-align: center; page-break-inside: avoid; }
+  figure img { max-width: 100%; }
+  ul, ol { margin: 3px 0 3px 18px; padding: 0; } li { margin: 2px 0; }
+  .refs { font-size: 8.8pt; }
+  a { color: #0b3d91; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>Do Graph Neural Networks Learn Better A* Heuristics?<br>A Budget-Controlled Study on Indian Road Networks</h1>
+<div class="authors">Mehtab Singh</div>
+<div class="affil">M.Tech Data Science &amp; AI, IIIT Dharwad · Code, data pipeline and per-query logs: <a href="https://github.com/MEHTABSINGH1/gnn-astar-heuristics">github.com/MEHTABSINGH1/gnn-astar-heuristics</a></div>
+
+<div class="abstract"><b>Abstract</b>
+Learned heuristics are a popular way to speed up A* search, but they are rarely compared with strong classical methods under equal preprocessing. We train MLP, GraphSAGE and GAT heuristics that predict the road-to-straight-line detour ratio on three Indian cities, and test them on four unseen cities (5k–26k nodes, OpenStreetMap). Every method gets the same budget of k = 0–16 single-source Dijkstra runs in the new city. With no preprocessing, learned heuristics cut node expansions to 0.45× of straight-line A* at 0.6% longer paths. However, a single calibrated detour-ratio constant lies on the same speed–optimality trade-off curve, graph message passing gives no gain over an MLP, and fine-tuning helps only in a city seen during training. The classical ALT algorithm is worse than straight-line A* with 1–2 landmarks, ties the learned models at 4, and dominates from 8 landmarks (0.35×), while always returning optimal paths. We conclude that for city road networks learning adds little beyond calibration, and we explain why: the detour-ratio distribution is nearly the same across cities.
+</div>
+
+<h2>1. Setup</h2>
+<p><b>Graphs.</b> Drivable OpenStreetMap networks within 5 km of eight city centres, made undirected and reduced to their largest component. Training: Chandigarh, Ludhiana, Jalandhar. Validation (choice of τ only): Patiala. Test: Chandigarh (seen city, new queries) and four <i>unseen</i> cities, Amritsar (Punjab), Dharwad, Mysuru and Bengaluru (Karnataka, a different region), with 19,117 / 4,958 / 18,557 / 26,386 nodes.</p>
+<p><b>Learned heuristic.</b> For node v and target t, predict r = d<sub>road</sub>(v,t) / d<sub>haversine</sub>(v,t) and use h(v) = d<sub>haversine</sub> · r̂. A three-layer encoder (MLP with no message passing, GraphSAGE or GATv2; 55–68k parameters) embeds nodes from city-invariant features. A pair head maps both embeddings plus the straight-line geometry to log r̂ ≥ 0. Exact labels come from 150 single-source Dijkstras per training city. The loss is the pinball loss at quantile τ ∈ {0.05, 0.2}: a lower τ under-predicts more often, which gives fewer sub-optimal paths but more search. τ = 0.2 was selected on Patiala for every method (fewest expansions with ≤ 1% sub-optimality). There are 3 training seeds per configuration.</p>
+<p><b>Equal budget k.</b> ALT uses k farthest-point landmarks (exact). The constant baseline uses the τ-quantile ratio measured on k calibration Dijkstras (k = 0: on the training cities). Learned models are zero-shot at k = 0 and fine-tuned on the k calibration Dijkstras otherwise. Calibration and query targets are disjoint. Each city has 150 queries (straight-line distance ≥ 1 km), identical for all methods, and one shared A* implementation is used throughout.</p>
+
+<h2>2. Results</h2>
+<table>
+<thead><tr><th>Unseen-city average</th><th>k = 0</th><th>k = 2</th><th>k = 4</th><th>k = 8</th><th>k = 16</th></tr></thead>
+<tbody>
+<tr><td>A* + haversine</td><td>1.00 (0%)</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>A* + ALT (k landmarks)</td><td>–</td><td>1.08 (0%)</td><td>0.50 (0%)</td><td><b>0.35 (0%)</b></td><td><b>0.25 (0%)</b></td></tr>
+<tr><td>haversine × constant</td><td>0.48 (0.37%)</td><td>0.49 (0.40%)</td><td>0.50 (0.34%)</td><td>0.50 (0.33%)</td><td>0.51 (0.29%)</td></tr>
+<tr><td>MLP (no graph)</td><td>0.46 (0.56%)</td><td>0.48 (0.70%)</td><td>–</td><td>–</td><td>0.50 (0.45%)</td></tr>
+<tr><td>GraphSAGE</td><td><b>0.45</b> (0.62%)</td><td>0.49 (0.72%)</td><td>–</td><td>–</td><td>0.51 (0.48%)</td></tr>
+<tr><td>GAT</td><td>0.46 (0.59%)</td><td>0.48 (0.70%)</td><td>–</td><td>–</td><td>0.51 (0.49%)</td></tr>
+</tbody></table>
+<div class="cap"><b>Table 1.</b> Node expansions relative to A* + haversine (geometric mean over queries, averaged over Amritsar, Dharwad, Mysuru and Bengaluru), with mean path sub-optimality in brackets. Learned: mean of 3 seeds (std ≤ 0.02). ALT with k = 1 gives 1.82; Dijkstra gives 5.53.</div>
+
+<figure><img src="../results/figures/budget_curve.png" alt="budget curve">
+<div class="cap"><b>Figure 1.</b> Search effort (left, log scale) and path quality (right) as the preprocessing budget grows.</div></figure>
+
+<figure><img src="../results/figures/tradeoff.png" alt="trade-off">
+<div class="cap"><b>Figure 2.</b> Speed–optimality trade-off over both τ values. The learned models lie on the same curve as the one-number constant baseline.</div></figure>
+
+<h2>3. Findings</h2>
+<ol>
+  <li><b>Over-estimating heuristics halve the search for very little loss.</b> Zero-shot learned models reach 0.45–0.46× expansions at 0.56–0.62% sub-optimality.</li>
+  <li><b>A constant does as well.</b> haversine × 1.17 (the 20th-percentile detour ratio on the training cities) gives 0.48× at 0.37%. At matched quality (τ = 0.05) the constant gives 0.60× at 0.12% and GraphSAGE 0.58× at 0.16%. The 20th-percentile detour ratio is 1.14–1.18 in every test city, so there is little city-specific signal for a model to exploit.</li>
+  <li><b>Message passing did not help.</b> GraphSAGE and GAT were within 0.01 of the MLP in every unseen city, inside seed noise.</li>
+  <li><b>Fine-tuning helps only in-distribution.</b> In Chandigarh (seen in training), fine-tuning on 16 Dijkstras lowers learned models to 0.41–0.45× against 0.56× for the constant at similar sub-optimality (about 0.8%). In unseen cities it moved models along the trade-off instead of improving them (GraphSAGE 0.45× → 0.51× while sub-optimality fell 0.62% → 0.48%).</li>
+  <li><b>ALT needs a few landmarks, then wins on every metric.</b> With 1–2 landmarks it is worse than haversine (1.82×, 1.08×). It ties at 4 (0.50×) and wins at 8–16 (0.35×, 0.25×) with optimal paths and at most 0.1 s of preprocessing per city.</li>
+</ol>
+
+<h2>4. Limitations</h2>
+<ul>
+  <li>City cores of 5k–26k nodes. At country scale, ALT's memory (k distances per node) grows and the balance may shift.</li>
+  <li>Wall-clock time in pure Python: 24 ms per query for haversine, 21 ms for GraphSAGE (9 ms of which is the model's per-target forward pass), 14 ms for the constant and 10 ms for ALT-16.</li>
+  <li>Distances only (no travel time); one-way streets ignored; two τ values and one model size tried.</li>
+</ul>
+
+<h2>References</h2>
+<ol class="refs">
+  <li>A. V. Goldberg, C. Harrelson. Computing the Shortest Path: A* Search Meets Graph Theory. SODA 2005.</li>
+  <li>W. Hamilton, R. Ying, J. Leskovec. Inductive Representation Learning on Large Graphs. NeurIPS 2017.</li>
+  <li>S. Brody, U. Alon, E. Yahav. How Attentive are Graph Attention Networks? ICLR 2022.</li>
+  <li>G. Boeing. OSMnx: New Methods for Acquiring, Constructing, Analyzing, and Visualizing Complex Street Networks. 2017.</li>
+  <li>P. Hart, N. Nilsson, B. Raphael. A Formal Basis for the Heuristic Determination of Minimum Cost Paths. 1968.</li>
+</ol>
+</body>
+</html>

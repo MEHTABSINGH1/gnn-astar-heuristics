@@ -176,6 +176,30 @@ def main():
     fig.suptitle(f"Average over {len(unseen)} unseen cities", fontsize=10)
     fig.tight_layout(); fig.savefig(figs / "budget_curve.png", dpi=160); plt.close(fig)
 
+    # Figure: speed / optimality trade-off at k = 0 and k = 16, every tau, unseen cities
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.8), sharey=True)
+    for ax, k in zip(axes, [0, 16]):
+        for b in ["const", "mlp", "sage", "gat"]:
+            pts = allU[allU.base.str.startswith(b + "_tau") & (allU.budget == k)].sort_values("subopt_pct")
+            if pts.empty:
+                continue
+            col, mk, _ = STYLE[b]
+            ax.errorbar(pts.subopt_pct, pts.exp_ratio, yerr=pts.exp_sd.fillna(0), color=col, marker=mk,
+                        capsize=2, label=NAME[b])
+            for _, r in pts.iterrows():
+                ax.annotate("τ=" + r.base.split("_tau")[1], (r.subopt_pct, r.exp_ratio), fontsize=6,
+                            xytext=(3, 3), textcoords="offset points", color=col)
+        a = U[(U.base == "alt") & (U.budget == max(k, 1))]
+        if len(a):
+            ax.scatter([0], a.exp_ratio, color=STYLE["alt"][0], marker="D", zorder=3,
+                       label=f"ALT ({max(k, 1)} landmark{'s' if k > 1 else ''})")
+        ax.axhline(1, color="k", ls="--", lw=.8, label=NAME["haversine"])
+        ax.set_xlabel("mean path sub-optimality (%)"); ax.grid(alpha=.3)
+        ax.set_title(f"k = {k} " + ("(no preprocessing)" if k == 0 else "(16 Dijkstra runs)"), fontsize=10)
+    axes[0].set_ylabel("expansions / A*-haversine"); axes[0].legend(fontsize=7)
+    fig.suptitle(f"Speed vs. optimality, average over {len(unseen)} unseen cities (down-left is better)", fontsize=10)
+    fig.tight_layout(); fig.savefig(figs / "tradeoff.png", dpi=160); plt.close(fig)
+
     # Figure: zero preprocessing per city
     zs = [b for b in ["const", "mlp", "sage", "gat"] if b in bases]
     cities = [SEEN] + unseen
