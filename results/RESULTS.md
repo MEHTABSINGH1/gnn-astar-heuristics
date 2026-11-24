@@ -1,6 +1,6 @@
 # Results
 
-_150 random queries per city (straight-line distance ≥ 1 km). Cells: node expansions relative to A* + haversine (geometric mean; lower is better), with mean path sub-optimality in brackets. Learned models: mean ± std over 3 training seeds._
+_Study 1: undirected graphs, edge cost = length. 150 random queries per 5 km city (straight-line distance ≥ 1 km). Cells: node expansions relative to A* + haversine (geometric mean; lower is better), with mean path sub-optimality in brackets. Learned models: mean ± std over 3 training seeds._
 
 ## Road graphs (5 km radius, OpenStreetMap drivable network)
 

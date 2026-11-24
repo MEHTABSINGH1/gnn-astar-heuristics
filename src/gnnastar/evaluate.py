@@ -57,16 +57,16 @@ def calibration_labels(g, exclude: set[int], seed: int, k: int = 16):
     pool = np.setdiff1d(np.arange(g.n), np.fromiter(exclude, dtype=int))
     ct = rng.choice(pool, size=k, replace=False)
     D = distances_to(g, ct)
-    H = np.stack([g.haversine_to(int(x)) for x in ct])
+    H = np.stack([g.base_heuristic(int(x)) for x in ct])
     return ct, D, H
 
 
 def evaluate_city(city: str, model_paths: list[str], n_queries: int, seed: int, out_dir: Path,
-                  ft_steps: int = 100, device: str | None = None) -> pd.DataFrame:
+                  ft_steps: int = 100, device: str | None = None, mode: str = "dist") -> pd.DataFrame:
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    g = load(city)
+    g = load(city, mode)
     qs = queries(g, n_queries, seed)
-    pre: dict = {"city": city, "nodes": g.n, "edges": g.m}
+    pre: dict = {"city": city, "nodes": g.n, "edges": g.m, "mode": mode, "directed": g.directed}
 
     t0 = time.perf_counter(); alt = ALT(g, max(ALT_BUDGETS), seed=seed)
     pre["alt16_s"] = time.perf_counter() - t0
@@ -96,15 +96,15 @@ def evaluate_city(city: str, model_paths: list[str], n_queries: int, seed: int, 
             if k == 0:
                 consts[f"const_tau{tau}_b0"] = c0
             else:
-                ok = H[:k] > 50
+                ok = H[:k] > 50 * g.scale
                 lr = np.log(np.maximum(D[:k][ok] / H[:k][ok], 1.0))
                 consts[f"const_tau{tau}_b{k}"] = float(np.exp(np.quantile(lr, tau)))
     pre["constants"] = consts
 
     rows = []
     for qi, (s, t) in enumerate(qs):
-        hav = g.haversine_to(t)
-        hs = {"dijkstra": (None, 0.0), "haversine": (hav, 0.0)}
+        t0 = time.perf_counter(); hav = g.base_heuristic(t); hb = time.perf_counter() - t0
+        hs = {"dijkstra": (None, 0.0), "haversine": (hav, hb)}
         for k in ALT_BUDGETS:
             t0 = time.perf_counter(); hs[f"alt_b{k}"] = (alt.heuristic(t, k), time.perf_counter() - t0)
         for name, c in consts.items():
@@ -135,13 +135,14 @@ def main():
     p.add_argument("--ft-steps", type=int, default=100)
     p.add_argument("--seed", type=int, default=123)
     p.add_argument("--out", default="results/eval")
+    p.add_argument("--mode", default="dist", choices=["dist", "time"])
     a = p.parse_args()
     paths = sorted({f for pat in a.models for f in glob.glob(pat)})
     for c in a.cities:
         if (Path(a.out) / f"{c}.csv").exists():
             print(f"[skip] {c}"); continue
         t0 = time.time()
-        df = evaluate_city(c, paths, a.queries, a.seed, Path(a.out), a.ft_steps)
+        df = evaluate_city(c, paths, a.queries, a.seed, Path(a.out), a.ft_steps, mode=a.mode)
         print(f"{c}: {df['query'].nunique()} queries x {df['method'].nunique()} methods "
               f"in {time.time() - t0:.0f}s", flush=True)
 

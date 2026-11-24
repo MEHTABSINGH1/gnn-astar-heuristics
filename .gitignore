@@ -8,3 +8,5 @@ cache/
 download.log
 .vscode/
 results/quick/
+download_time.log
+download_xl.log

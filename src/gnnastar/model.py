@@ -25,16 +25,33 @@ from .graphs import RoadGraph
 
 
 def node_features(g: RoadGraph) -> np.ndarray:
-    """City-invariant node features (no absolute coordinates)."""
-    deg = np.diff(g.indptr).astype(float)
+    """City-invariant node features (no absolute coordinates).
+
+    dist graphs: 6 features (position relative to centroid, degree, mean edge length, dead end, junction).
+    time graphs: the same 6 plus 4 road-class features (mean / max incident speed, share of fast
+    roads, one-way imbalance), so the model can tell arterials from residential lanes."""
+    out_deg = np.diff(g.indptr).astype(float)
     rows = np.repeat(np.arange(g.n), np.diff(g.indptr))
-    mean_len = np.bincount(rows, weights=g.weights, minlength=g.n) / np.maximum(deg, 1)
+    lengths = g.lengths if g.lengths is not None else g.weights
+    mean_len = np.bincount(rows, weights=lengths, minlength=g.n) / np.maximum(out_deg, 1)
+    deg = out_deg
+    if g.directed:
+        in_deg = np.bincount(g.indices, minlength=g.n).astype(float)
+        deg = np.maximum(out_deg, in_deg)
     # local coordinates in km relative to the city centroid (translation-invariant)
     lat0, lon0 = g.lat.mean(), g.lon.mean()
     y = (g.lat - lat0) * 111.32
     x = (g.lon - lon0) * 111.32 * np.cos(np.radians(lat0))
-    return np.stack([x / 5, y / 5, np.log1p(deg), np.log1p(mean_len) / 5,
-                     (deg == 1).astype(float), (deg >= 4).astype(float)], axis=1).astype(np.float32)
+    feats = [x / 5, y / 5, np.log1p(deg), np.log1p(mean_len) / 5,
+             (deg == 1).astype(float), (deg >= 4).astype(float)]
+    if g.mode == "time":
+        kph = lengths / g.weights * 3.6
+        cnt = np.maximum(np.bincount(rows, minlength=g.n), 1)
+        mean_kph = np.bincount(rows, weights=kph, minlength=g.n) / cnt
+        max_kph = np.zeros(g.n); np.maximum.at(max_kph, rows, kph)
+        fast = np.bincount(rows, weights=(kph >= 40).astype(float), minlength=g.n) / cnt
+        feats += [mean_kph / 40, max_kph / 40, fast, (out_deg - in_deg) / np.maximum(deg, 1)]
+    return np.stack(feats, axis=1).astype(np.float32)
 
 
 def pair_features(g: RoadGraph, v: np.ndarray, t: np.ndarray) -> np.ndarray:
@@ -42,7 +59,10 @@ def pair_features(g: RoadGraph, v: np.ndarray, t: np.ndarray) -> np.ndarray:
     d = np.maximum(_hav(g, v, t), 1.0)
     dy = (g.lat[t] - g.lat[v]) * 111_320
     dx = (g.lon[t] - g.lon[v]) * 111_320 * np.cos(np.radians(g.lat[v]))
-    return np.stack([np.log(d) / 10, dx / d, dy / d], axis=1).astype(np.float32)
+    cols = [np.log(d) / 10, dx / d, dy / d]
+    if g.mode == "time":  # the base heuristic divides by this city's top speed, so the model must know it
+        cols.append(np.full(len(d), np.log(3.6 / g.scale / 60)))
+    return np.stack(cols, axis=1).astype(np.float32)
 
 
 def _hav(g: RoadGraph, v, t):
@@ -51,7 +71,8 @@ def _hav(g: RoadGraph, v, t):
 
 
 class HeuristicNet(nn.Module):
-    def __init__(self, encoder: str = "sage", in_dim: int = 6, hidden: int = 64, layers: int = 3):
+    def __init__(self, encoder: str = "sage", in_dim: int = 6, hidden: int = 64, layers: int = 3,
+                 pair_dim: int = 3):
         super().__init__()
         self.encoder = encoder
         self.inp = nn.Linear(in_dim, hidden)
@@ -65,7 +86,7 @@ class HeuristicNet(nn.Module):
         else:
             raise ValueError(encoder)
         self.norms = nn.ModuleList(nn.LayerNorm(hidden) for _ in range(layers))
-        self.head = nn.Sequential(nn.Linear(4 * hidden + 3, 128), nn.ReLU(),
+        self.head = nn.Sequential(nn.Linear(4 * hidden + pair_dim, 128), nn.ReLU(),
                                   nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 1))
 
     def embed(self, x, edge_index, edge_len):
@@ -88,10 +109,14 @@ class HeuristicNet(nn.Module):
 
 
 def graph_tensors(g: RoadGraph, device):
+    """Node features and message-passing edges. Messages flow both ways along every road,
+    even one-way streets, because a node's context does not depend on driving direction."""
     x = torch.tensor(node_features(g), device=device)
-    ei = torch.tensor(g.edge_index(), dtype=torch.long, device=device)
-    el = torch.tensor(np.log1p(g.weights)[:, None] / 5, dtype=torch.float32, device=device)
-    return x, ei, el
+    ei, w = g.edge_index(), g.weights
+    if g.directed:
+        ei, w = np.concatenate([ei, ei[::-1]], axis=1), np.r_[w, w]
+    el = torch.tensor(np.log1p(w)[:, None] / 5, dtype=torch.float32, device=device)
+    return x, torch.tensor(ei, dtype=torch.long, device=device), el
 
 
 def pinball(pred, target, tau: float):
@@ -106,6 +131,6 @@ def heuristic_for_target(model: HeuristicNet, g: RoadGraph, z: torch.Tensor, t: 
     tt = np.full(g.n, t)
     pf = torch.tensor(pair_features(g, v, tt), device=z.device)
     r = model.log_ratio(z, torch.as_tensor(v, device=z.device), torch.as_tensor(tt, device=z.device), pf)
-    h = g.haversine_to(t) * np.exp(r.cpu().numpy())
+    h = g.base_heuristic(t) * np.exp(r.cpu().numpy())
     h[t] = 0.0
     return h

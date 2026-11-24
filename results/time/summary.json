@@ -1,0 +1,170 @@
+{
+  "chosen_tau": {
+    "const": 0.2,
+    "gat": 0.2,
+    "mlp": 0.2,
+    "sage": 0.2
+  },
+  "unseen_cities": [
+    "amritsar",
+    "dharwad",
+    "mysuru",
+    "bengaluru"
+  ],
+  "queries_per_city": 150,
+  "graphs": {
+    "amritsar": {
+      "nodes": 19051,
+      "edges": 49950
+    },
+    "bengaluru": {
+      "nodes": 26311,
+      "edges": 69417
+    },
+    "chandigarh": {
+      "nodes": 12019,
+      "edges": 30689
+    },
+    "dharwad": {
+      "nodes": 4947,
+      "edges": 13341
+    },
+    "mysuru": {
+      "nodes": 18548,
+      "edges": 53639
+    },
+    "patiala": {
+      "nodes": 13054,
+      "edges": 35417
+    }
+  },
+  "unseen_avg": {
+    "haversine": {
+      "0": {
+        "exp_ratio": 1.0,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      }
+    },
+    "alt": {
+      "1": {
+        "exp_ratio": 0.8927,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      },
+      "2": {
+        "exp_ratio": 0.5229,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      },
+      "4": {
+        "exp_ratio": 0.2803,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      },
+      "8": {
+        "exp_ratio": 0.1655,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      },
+      "16": {
+        "exp_ratio": 0.1212,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      }
+    },
+    "const": {
+      "0": {
+        "exp_ratio": 0.2759,
+        "subopt_pct": 1.0013,
+        "optimal_pct": 73.1667
+      },
+      "1": {
+        "exp_ratio": 0.2889,
+        "subopt_pct": 0.8831,
+        "optimal_pct": 79.8333
+      },
+      "2": {
+        "exp_ratio": 0.2668,
+        "subopt_pct": 1.0149,
+        "optimal_pct": 79.3333
+      },
+      "4": {
+        "exp_ratio": 0.2509,
+        "subopt_pct": 0.671,
+        "optimal_pct": 83.1667
+      },
+      "8": {
+        "exp_ratio": 0.2373,
+        "subopt_pct": 0.8596,
+        "optimal_pct": 79.0
+      },
+      "16": {
+        "exp_ratio": 0.239,
+        "subopt_pct": 0.8204,
+        "optimal_pct": 79.6667
+      }
+    },
+    "mlp": {
+      "0": {
+        "exp_ratio": 0.204,
+        "subopt_pct": 0.9086,
+        "optimal_pct": 66.3333
+      },
+      "2": {
+        "exp_ratio": 0.158,
+        "subopt_pct": 1.3969,
+        "optimal_pct": 60.4444
+      },
+      "16": {
+        "exp_ratio": 0.1422,
+        "subopt_pct": 0.991,
+        "optimal_pct": 65.8333
+      }
+    },
+    "sage": {
+      "0": {
+        "exp_ratio": 0.1983,
+        "subopt_pct": 1.2531,
+        "optimal_pct": 62.2778
+      },
+      "2": {
+        "exp_ratio": 0.1507,
+        "subopt_pct": 1.4049,
+        "optimal_pct": 60.7222
+      },
+      "16": {
+        "exp_ratio": 0.1409,
+        "subopt_pct": 1.0469,
+        "optimal_pct": 63.0
+      }
+    },
+    "gat": {
+      "0": {
+        "exp_ratio": 0.2051,
+        "subopt_pct": 1.0752,
+        "optimal_pct": 63.2222
+      },
+      "2": {
+        "exp_ratio": 0.1517,
+        "subopt_pct": 1.2812,
+        "optimal_pct": 60.3889
+      },
+      "16": {
+        "exp_ratio": 0.1415,
+        "subopt_pct": 0.8721,
+        "optimal_pct": 64.7778
+      }
+    },
+    "dijkstra": {
+      "0": {
+        "exp_ratio": 2.2294,
+        "subopt_pct": 0.0,
+        "optimal_pct": 100.0
+      }
+    }
+  },
+  "xl": {},
+  "best_zero_shot_learned": "sage",
+  "first_budget_where_alt_beats_best_learned": 16
+}

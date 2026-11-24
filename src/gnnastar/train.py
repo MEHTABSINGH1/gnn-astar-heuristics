@@ -16,21 +16,21 @@ import numpy as np
 import torch
 
 from .graphs import load
-from .model import HeuristicNet, graph_tensors, pair_features, pinball
+from .model import HeuristicNet, graph_tensors, node_features, pair_features, pinball
 from .search import distances_to
 
 
 def make_labels(g, n_targets: int, rng):
     t = rng.choice(g.n, size=n_targets, replace=False)
     D = distances_to(g, t)                       # (n_targets, n)
-    H = np.stack([g.haversine_to(int(x)) for x in t])
+    H = np.stack([g.base_heuristic(int(x)) for x in t])
     return t, D, H
 
 
 def sample_pairs(g, t, D, H, n, rng):
     ti = rng.integers(len(t), size=n)
     v = rng.integers(g.n, size=n)
-    keep = H[ti, v] > 50.0                       # skip near-identical pairs (ratio ill-defined)
+    keep = H[ti, v] > 50.0 * g.scale             # skip pairs < 50 m apart (ratio ill-defined)
     ti, v = ti[keep], v[keep]
     y = np.log(np.maximum(D[ti, v] / H[ti, v], 1.0))
     return v, t[ti], y.astype(np.float32)
@@ -38,20 +38,22 @@ def sample_pairs(g, t, D, H, n, rng):
 
 def train(encoder: str, cities: list[str], val_city: str, tau: float, seed: int,
           steps: int = 1500, batch: int = 4096, lr: float = 2e-3, out: Path | None = None,
-          device: str | None = None) -> dict:
+          device: str | None = None, mode: str = "dist") -> dict:
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
-    graphs = [load(c) for c in cities]
+    graphs = [load(c, mode) for c in cities]
     tensors = [graph_tensors(g, device) for g in graphs]
     labels = [make_labels(g, 150, rng) for g in graphs]
-    gv = load(val_city)
+    gv = load(val_city, mode)
     tv = graph_tensors(gv, device)
     lv = make_labels(gv, 40, np.random.default_rng(10_000 + seed))
     vv, vt, vy = sample_pairs(gv, *lv, 20_000, np.random.default_rng(1))
     vpf = torch.tensor(pair_features(gv, vv, vt), device=device)
 
-    model = HeuristicNet(encoder).to(device)
+    in_dim = node_features(graphs[0]).shape[1]
+    pair_dim = pair_features(graphs[0], np.array([0]), np.array([1])).shape[1]
+    model = HeuristicNet(encoder, in_dim=in_dim, pair_dim=pair_dim).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=steps)
     best, best_state, hist = np.inf, None, []
@@ -81,8 +83,10 @@ def train(encoder: str, cities: list[str], val_city: str, tau: float, seed: int,
                 best, best_state = vl, {k_: w.detach().cpu().clone() for k_, w in model.state_dict().items()}
     model.load_state_dict(best_state)
     # zero-budget constant baseline: the tau-quantile detour ratio pooled over training cities
-    all_logr = np.concatenate([np.log(np.maximum(D[H > 50] / H[H > 50], 1.0)) for _, D, H in labels])
+    all_logr = np.concatenate([np.log(np.maximum(D[H > 50 * g.scale] / H[H > 50 * g.scale], 1.0))
+                               for g, (_, D, H) in zip(graphs, labels)])
     info = {"encoder": encoder, "cities": cities, "val_city": val_city, "tau": tau, "seed": seed,
+            "mode": mode, "in_dim": in_dim, "pair_dim": pair_dim,
             "train_const_ratio": float(np.exp(np.quantile(all_logr, tau))),
             "steps": steps, "best_val_pinball": best, "train_seconds": time.time() - t0,
             "params": sum(p.numel() for p in model.parameters()), "history": hist}
@@ -116,7 +120,8 @@ def finetune(model: HeuristicNet, g, labels, tau: float, steps: int = 200, lr: f
 
 def load_model(path: Path, device: str = "cpu") -> HeuristicNet:
     ck = torch.load(path, map_location=device, weights_only=False)
-    m = HeuristicNet(ck["info"]["encoder"]).to(device)
+    i = ck["info"]
+    m = HeuristicNet(i["encoder"], in_dim=i.get("in_dim", 6), pair_dim=i.get("pair_dim", 3)).to(device)
     m.load_state_dict(ck["state"])
     m.info = ck["info"]
     return m.eval()

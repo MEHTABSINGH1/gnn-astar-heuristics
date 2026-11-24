@@ -76,3 +76,49 @@ def test_model_forward_and_heuristic_shape(g):
         z = m.embed(*graph_tensors(g, "cpu"))
         h = heuristic_for_target(m, g, z, 17)
         assert h.shape == (g.n,) and h[17] == 0 and np.all(h >= g.haversine_to(17) - 1e-6)
+
+
+def directed_grid(k=14, seed=3) -> RoadGraph:
+    """Grid with travel-time costs, random speeds and ~25% one-way streets (still strongly connected:
+    every street has a two-way twin one block away)."""
+    rng = np.random.default_rng(seed)
+    base = grid(k, seed)
+    A = base.csr().tocoo()
+    keep = np.ones(len(A.row), bool)
+    for e, (u, v) in enumerate(zip(A.row, A.col)):
+        i, j = divmod(u, k)
+        # make horizontal streets in odd rows (except the border) one-way eastbound
+        if i % 2 == 1 and 0 < i < k - 1 and v == u - 1:
+            keep[e] = False
+    r, c, length = A.row[keep], A.col[keep], A.data[keep]
+    kph = rng.choice([20, 30, 50], size=len(r))
+    cost = length / (kph / 3.6)
+    M = sp.csr_matrix((cost, (r, c)), shape=(k * k, k * k)); M.sort_indices()
+    L = sp.csr_matrix((length, (r, c)), shape=(k * k, k * k)); L.sort_indices()
+    return RoadGraph("dgrid", base.lat, base.lon, M.indptr, M.indices, M.data, directed=True,
+                     scale=1 / (50 / 3.6), lengths=L.data, mode="time")
+
+
+def test_directed_travel_time_methods_are_exact():
+    g = directed_grid()
+    alt = ALT(g, n_landmarks=4)
+    rng = np.random.default_rng(2)
+    for _ in range(30):
+        s, t = (int(x) for x in rng.integers(g.n, size=2))
+        exact = distances_to(g, t)[0, s]
+        assert np.isfinite(exact)
+        assert np.all(g.base_heuristic(t) <= distances_to(g, t)[0] + 1e-6)   # admissible
+        assert np.all(alt.heuristic(t) <= distances_to(g, t)[0] + 1e-6)      # admissible
+        for h in (None, g.base_heuristic(t), alt.heuristic(t)):
+            assert astar(g, s, t, h).cost == pytest.approx(exact)
+
+
+def test_model_runs_on_directed_graph():
+    pytest.importorskip("torch_geometric")
+    from gnnastar.model import HeuristicNet, graph_tensors, heuristic_for_target, node_features, pair_features
+    g = directed_grid()
+    m = HeuristicNet("sage", in_dim=node_features(g).shape[1],
+                     pair_dim=pair_features(g, np.array([0]), np.array([1])).shape[1]).eval()
+    z = m.embed(*graph_tensors(g, "cpu"))
+    h = heuristic_for_target(m, g, z, 5)
+    assert h.shape == (g.n,) and h[5] == 0 and np.all(h >= g.base_heuristic(5) - 1e-9)

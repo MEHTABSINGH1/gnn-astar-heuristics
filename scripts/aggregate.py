@@ -27,6 +27,7 @@ import pandas as pd  # noqa: E402
 VAL = "patiala"
 SEEN = "chandigarh"
 UNSEEN = ["amritsar", "dharwad", "mysuru", "bengaluru"]
+XL = ["ludhiana_xl", "bengaluru_xl"]
 BUDGETS = [0, 1, 2, 4, 8, 16]
 NAME = {"haversine": "A* + haversine", "alt": "A* + ALT (k landmarks)", "const": "haversine × constant",
         "mlp": "MLP (no graph)", "sage": "GraphSAGE", "gat": "GAT", "dijkstra": "Dijkstra"}
@@ -112,6 +113,11 @@ def main():
     t = city_seed_table(q)
     pre = {f.stem.replace("_preprocess", ""): json.loads(f.read_text()) for f in ev.glob("*_preprocess.json")}
     unseen = [c for c in UNSEEN if c in set(t.city)]
+    xl = [c for c in XL if c in set(t.city)]
+    time_mode = any(v.get("mode") == "time" for v in pre.values())
+    if time_mode:  # base heuristic is straight-line distance / top speed
+        NAME["haversine"] = "A* + straight-line / v_max"
+        NAME["const"] = "straight-line / v_max × constant"
     chosen = choose_tau(t) if VAL in set(t.city) else {}
     ts = select(t, chosen)
     U = over_cities(ts, unseen)
@@ -119,13 +125,19 @@ def main():
     head = ["| Method | " + " | ".join(f"k={k}" for k in BUDGETS) + " |", "|---" * (len(BUDGETS) + 1) + "|"]
 
     md = ["# Results\n",
-          f"_{q['query'].nunique()} random queries per city (straight-line distance ≥ 1 km). "
-          "Cells: node expansions relative to A* + haversine (geometric mean; lower is better), "
+          ("_Study 2: directed graphs (one-way streets), edge cost = free-flow travel time. " if time_mode
+           else "_Study 1: undirected graphs, edge cost = length. ")
+          + f"{q[~q.city.isin(XL)]['query'].nunique()} random queries per 5 km city"
+          + (f", {q[q.city.isin(XL)]['query'].nunique()} per city-scale graph" if xl else "")
+          + " (straight-line distance ≥ 1 km). "
+          f"Cells: node expansions relative to {NAME['haversine']} (geometric mean; lower is better), "
           "with mean path sub-optimality in brackets. Learned models: mean ± std over 3 training seeds._\n",
           "## Road graphs (5 km radius, OpenStreetMap drivable network)\n",
           "| City | Role | Nodes | Edges |", "|---|---|---|---|"]
-    role = {SEEN: "train + test (new queries)", VAL: "validation (τ selection)", **{c: "test, unseen" for c in UNSEEN}}
-    for c in [SEEN, VAL] + unseen:
+    role = {SEEN: "train + test (new queries)", VAL: "validation (τ selection)", **{c: "test, unseen" for c in UNSEEN},
+            "ludhiana_xl": "scaling test, 10 km (contains the 5 km training city)",
+            "bengaluru_xl": "scaling test, 12 km, unseen"}
+    for c in [SEEN, VAL] + unseen + xl:
         if c in pre:
             md.append(f"| {c.capitalize()} | {role[c]} | {pre[c]['nodes']:,} | {pre[c]['edges']:,} |")
     md += ["\n## Quantile τ chosen on the validation city\n", "| Method | τ |", "|---|---|"]
@@ -146,7 +158,14 @@ def main():
             continue
         md += [f"\n### {title}\n"] + head + [f"| {NAME[b]} | " + " | ".join(row_cells(T, b)) + " |" for b in bases]
 
-    allt = t[t.tau.notna()].copy()
+    if xl:
+        md += ["\n## Scaling: city-scale graphs (selected τ only)\n"]
+        for c in xl:
+            T = over_cities(ts, [c])
+            md += [f"\n### {c} ({pre[c]['nodes']:,} nodes)\n"] + head
+            md += [f"| {NAME[b]} | " + " | ".join(row_cells(T, b)) + " |" for b in bases if b in set(T.base)]
+
+    allt = t[t.tau.notna() & ~t.city.isin(XL)].copy()
     allt["base"] = allt.base + "_tau" + allt.tau.astype(str)
     allU = over_cities(allt, unseen)
     md += ["\n## All τ values (unseen-city average, for transparency)\n"] + head
@@ -233,6 +252,10 @@ def main():
                "unseen_avg": {b: {str(k): {"exp_ratio": val(b, k), "subopt_pct": val(b, k, "subopt_pct"),
                                            "optimal_pct": val(b, k, "optimal_pct")}
                                   for k in BUDGETS if val(b, k) is not None} for b in bases + ["dijkstra"]},
+               "xl": {c: {b: {str(k): {"exp_ratio": round(float(r.exp_ratio), 4),
+                                       "subopt_pct": round(float(r.subopt_pct), 4)}
+                              for k, r in over_cities(ts[ts.base == b], [c]).set_index("budget").iterrows()}
+                          for b in bases} for c in xl},
                "best_zero_shot_learned": best0,
                "first_budget_where_alt_beats_best_learned": crossover}
     (out / "RESULTS.md").write_text("\n".join(md) + "\n", encoding="utf-8")

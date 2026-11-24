@@ -164,6 +164,7 @@
       }
     }
   },
+  "xl": {},
   "best_zero_shot_learned": "sage",
   "first_budget_where_alt_beats_best_learned": 8
 }
