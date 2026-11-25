@@ -1,6 +1,6 @@
 # Results
 
-_Study 2: directed graphs (one-way streets), edge cost = free-flow travel time. 150 random queries per 5 km city (straight-line distance ≥ 1 km). Cells: node expansions relative to A* + straight-line / v_max (geometric mean; lower is better), with mean path sub-optimality in brackets. Learned models: mean ± std over 3 training seeds._
+_Study 2: directed graphs (one-way streets), edge cost = free-flow travel time. 150 random queries per 5 km city, 60 per city-scale graph (straight-line distance ≥ 1 km). Cells: node expansions relative to A* + straight-line / v_max (geometric mean; lower is better), with mean path sub-optimality in brackets. Learned models: mean ± std over 3 training seeds._
 
 ## Road graphs (5 km radius, OpenStreetMap drivable network)
 
@@ -12,6 +12,8 @@ _Study 2: directed graphs (one-way streets), edge cost = free-flow travel time. 
 | Dharwad | test, unseen | 4,947 | 13,341 |
 | Mysuru | test, unseen | 18,548 | 53,639 |
 | Bengaluru | test, unseen | 26,311 | 69,417 |
+| Ludhiana_xl | scaling test, 10 km (contains the 5 km training city) | 53,214 | 144,365 |
+| Bengaluru_xl | scaling test, 12 km, unseen | 134,415 | 341,548 |
 
 ## Quantile τ chosen on the validation city
 
@@ -90,6 +92,31 @@ k = number of single-source Dijkstra runs allowed in the new city (ALT: k landma
 | MLP (no graph) | 0.12±0.00 (1.51%) | – | 0.17±0.01 (1.73%) | – | – | 0.15±0.00 (0.95%) |
 | GraphSAGE | 0.12±0.01 (2.10%) | – | 0.16±0.03 (1.81%) | – | – | 0.15±0.01 (0.98%) |
 | GAT | 0.13±0.02 (1.76%) | – | 0.17±0.01 (1.78%) | – | – | 0.15±0.00 (0.79%) |
+
+## Scaling: city-scale graphs (selected τ only)
+
+
+### ludhiana_xl (53,214 nodes)
+
+| Method | k=0 | k=1 | k=2 | k=4 | k=8 | k=16 |
+|---|---|---|---|---|---|---|
+| A* + straight-line / v_max | 1.00 (0.00%) |  |  |  |  |  |
+| A* + ALT (k landmarks) | – | 0.77 (0.00%) | 0.44 (0.00%) | 0.31 (0.00%) | 0.19 (0.00%) | 0.13 (0.00%) |
+| straight-line / v_max × constant | 0.17 (1.15%) | 0.18 (1.03%) | 0.19 (0.72%) | 0.19 (0.71%) | 0.20 (0.66%) | 0.19 (0.71%) |
+| MLP (no graph) | 0.12±0.01 (1.42%) | – | 0.12±0.02 (1.31%) | – | – | 0.11±0.01 (0.86%) |
+| GraphSAGE | 0.13±0.02 (2.21%) | – | 0.12±0.01 (1.21%) | – | – | 0.11±0.01 (0.97%) |
+| GAT | 0.12±0.00 (1.57%) | – | 0.12±0.01 (1.56%) | – | – | 0.12±0.00 (1.05%) |
+
+### bengaluru_xl (134,415 nodes)
+
+| Method | k=0 | k=1 | k=2 | k=4 | k=8 | k=16 |
+|---|---|---|---|---|---|---|
+| A* + straight-line / v_max | 1.00 (0.00%) |  |  |  |  |  |
+| A* + ALT (k landmarks) | – | 0.44 (0.00%) | 0.29 (0.00%) | 0.16 (0.00%) | 0.10 (0.00%) | 0.09 (0.00%) |
+| straight-line / v_max × constant | 0.55 (0.00%) | 0.08 (1.70%) | 0.08 (2.13%) | 0.10 (1.46%) | 0.11 (1.13%) | 0.11 (0.78%) |
+| MLP (no graph) | 0.44±0.04 (0.03%) | – | 0.12±0.03 (1.53%) | – | – | 0.06±0.01 (1.33%) |
+| GraphSAGE | 0.40±0.05 (0.06%) | – | 0.13±0.03 (0.88%) | – | – | 0.06±0.01 (1.69%) |
+| GAT | 0.43±0.00 (0.07%) | – | 0.13±0.03 (0.67%) | – | – | 0.06±0.00 (1.17%) |
 
 ## All τ values (unseen-city average, for transparency)
 

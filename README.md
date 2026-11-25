@@ -24,6 +24,7 @@ We ask when a learned heuristic beats classical ones for A\* search, giving ever
 2. **With plain distance, it doesn't.** One constant detour factor matches every learned model, because road-to-straight-line detours are nearly identical across Indian cities (20th percentile 1.14–1.18). Travel-time detours are not (calibrated factor 1.79–2.96 across cities), which leaves room to learn.
 3. **Learning wins only at small preprocessing budgets.** With ≤ 2 Dijkstra runs a fine-tuned model explores 3.5× fewer nodes than ALT (0.15× against 0.52×). ALT catches up at 8 landmarks and wins at 16 (0.12×), while always returning the optimal route.
 4. **Graph message passing added nothing.** GraphSAGE and GAT were within seed noise of an MLP on node features in both studies: local road-class features were enough.
+5. **At city scale the picture shifts again** (53k- and 134k-node graphs, 10–12 km). With 16 Dijkstra runs, fine-tuned models explore **13–33% fewer nodes than ALT-16** (at ~1% longer routes), because 16 landmarks cover a big city less well. Zero-shot transfer **breaks** on 12 km Bengaluru, whose 120 km/h road doubles the looseness of the bound; one Dijkstra run in the new city fixes it.
 
 ## 1. Question
 
@@ -94,6 +95,22 @@ Full tables (every city, budget and τ): Study 2 [`results/time/RESULTS.md`](res
 
 ![per city, travel time](results/time/figures/zero_shot_per_city.png)
 
+### City-scale test (Study 2 settings, 60 queries per graph, τ = 0.2)
+
+Same trained models, no retraining, on much larger graphs: **Ludhiana 10 km** (53,214 nodes; contains the 5 km training core) and **Bengaluru 12 km** (134,415 nodes, 5× the largest training graph).
+
+| Method | Ludhiana 10 km, k = 0 | k = 16 | Bengaluru 12 km, k = 0 | k = 2 | k = 16 |
+|---|---|---|---|---|---|
+| A\* + ALT (16 landmarks) | – | 0.13× (exact) | – | 0.29× (2 lm, exact) | 0.085× (exact) |
+| straight-line / v_max × constant | 0.17× (+1.15%) | 0.19× (+0.71%) | 0.55× (+0.00%) | 0.08× (+2.13%) | 0.11× (+0.78%) |
+| MLP | **0.12×** (+1.42%) | **0.11×** (+0.86%) | 0.44× (+0.03%) | 0.12× (+1.53%) | **0.064×** (+1.33%) |
+| GraphSAGE | 0.13× (+2.21%) | **0.11×** (+0.97%) | 0.40× (+0.06%) | 0.13× (+0.88%) | **0.057×** (+1.69%) |
+| GAT | **0.12×** (+1.57%) | 0.12× (+1.05%) | 0.43× (+0.07%) | 0.13× (+0.67%) | **0.057×** (+1.17%) |
+
+- **Fine-tuned learned heuristics beat ALT-16 at scale:** 0.106–0.116× vs. 0.134× in Ludhiana and 0.057–0.064× vs. 0.085× in Bengaluru, i.e. 13–33% fewer expansions, at about 1% longer routes (ALT stays exact). On the 5 km cores ALT-16 won (0.12× vs. 0.14×).
+- **Zero-shot fails under a top-speed shift.** Every training city tops out at 60 km/h. The 12 km Bengaluru graph contains a road at 120 km/h, so the straight-line / v_max bound becomes twice as loose: the calibrated detour factor jumps from 1.98 (training cities) to 3.4. The k = 0 constant and the zero-shot models under-scale and stay near-exact but slow (0.40–0.55×). A single Dijkstra run re-calibrates the constant (0.08×), and the models recover after fine-tuning.
+- Preprocessing cost grows with graph size: ALT-16 takes 1.5 s on Bengaluru 12 km, fine-tuning a model on 16 runs 22 s (MLP) to 140 s (GAT) in this Python implementation.
+
 ### Study 1: distance, undirected
 
 | Unseen-city average | k = 0 | k = 2 | k = 8 | k = 16 |
@@ -125,7 +142,8 @@ Full tables (every city, budget and τ): Study 2 [`results/time/RESULTS.md`](res
 
 ## 4. Limitations
 
-- **Scale:** graphs are 5 km city cores (5k–26k nodes). A city-scale test (Bengaluru 12 km, Ludhiana 10 km) is implemented (`run_all.py --mode time` evaluates them automatically once `data/graphs_time/*_xl.npz` exist), but it has **not been run yet**, because the public Overpass API was unreachable from our network when these results were produced.
+- **Scale:** the main results use 5 km city cores (5k–26k nodes). The city-scale test covers only two graphs (53k and 134k nodes) with 60 queries each and the selected τ; the Ludhiana 10 km graph also contains the training core, so only Bengaluru 12 km is fully unseen.
+- **Top-speed shift:** all training cities have the same top speed (60 km/h), so the model never learned to use the top-speed feature; training on cities with motorways would be needed for zero-shot transfer to them.
 - **Speeds** are free-flow and mostly road-class defaults: few Indian roads carry `maxspeed` tags. There is no live traffic and there are no turn costs.
 - **Wall-clock time** (pure Python A\*): the per-target forward pass of the model costs about 9 ms, so in this implementation the time savings are smaller than the savings in expansions. Expansions are the hardware-independent measure.
 - Two τ values and one model size were tried.
@@ -138,7 +156,8 @@ pytest -q                                          # 7 tests incl. directed ALT 
 python scripts/download.py                         # study 1 graphs (OpenStreetMap, needs internet)
 python scripts/download.py --mode time             # study 2 graphs
 python scripts/run_all.py                          # study 1 -> results/         (~40 min)
-python scripts/run_all.py --mode time              # study 2 -> results/time/    (~45 min)
+python scripts/download.py --mode time ludhiana_xl bengaluru_xl   # city-scale graphs (optional)
+python scripts/run_all.py --mode time              # study 2 -> results/time/    (~45 min; +45 min for city-scale graphs if downloaded)
 python scripts/frontier_map.py --mode time --city bengaluru
 ```
 

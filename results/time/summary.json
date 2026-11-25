@@ -21,6 +21,10 @@
       "nodes": 26311,
       "edges": 69417
     },
+    "bengaluru_xl": {
+      "nodes": 134415,
+      "edges": 341548
+    },
     "chandigarh": {
       "nodes": 12019,
       "edges": 30689
@@ -28,6 +32,10 @@
     "dharwad": {
       "nodes": 4947,
       "edges": 13341
+    },
+    "ludhiana_xl": {
+      "nodes": 53214,
+      "edges": 144365
     },
     "mysuru": {
       "nodes": 18548,
@@ -164,7 +172,204 @@
       }
     }
   },
-  "xl": {},
+  "xl": {
+    "ludhiana_xl": {
+      "haversine": {
+        "0": {
+          "exp_ratio": 1.0,
+          "subopt_pct": 0.0
+        }
+      },
+      "alt": {
+        "1": {
+          "exp_ratio": 0.7717,
+          "subopt_pct": 0.0
+        },
+        "2": {
+          "exp_ratio": 0.4442,
+          "subopt_pct": 0.0
+        },
+        "4": {
+          "exp_ratio": 0.3076,
+          "subopt_pct": 0.0
+        },
+        "8": {
+          "exp_ratio": 0.1911,
+          "subopt_pct": 0.0
+        },
+        "16": {
+          "exp_ratio": 0.1335,
+          "subopt_pct": 0.0
+        }
+      },
+      "const": {
+        "0": {
+          "exp_ratio": 0.1704,
+          "subopt_pct": 1.1531
+        },
+        "1": {
+          "exp_ratio": 0.1764,
+          "subopt_pct": 1.0329
+        },
+        "2": {
+          "exp_ratio": 0.1887,
+          "subopt_pct": 0.7198
+        },
+        "4": {
+          "exp_ratio": 0.1913,
+          "subopt_pct": 0.7141
+        },
+        "8": {
+          "exp_ratio": 0.1955,
+          "subopt_pct": 0.6578
+        },
+        "16": {
+          "exp_ratio": 0.1915,
+          "subopt_pct": 0.7141
+        }
+      },
+      "mlp": {
+        "0": {
+          "exp_ratio": 0.1196,
+          "subopt_pct": 1.4217
+        },
+        "2": {
+          "exp_ratio": 0.1204,
+          "subopt_pct": 1.3063
+        },
+        "16": {
+          "exp_ratio": 0.1056,
+          "subopt_pct": 0.8562
+        }
+      },
+      "sage": {
+        "0": {
+          "exp_ratio": 0.1275,
+          "subopt_pct": 2.2113
+        },
+        "2": {
+          "exp_ratio": 0.1236,
+          "subopt_pct": 1.2068
+        },
+        "16": {
+          "exp_ratio": 0.108,
+          "subopt_pct": 0.9718
+        }
+      },
+      "gat": {
+        "0": {
+          "exp_ratio": 0.1183,
+          "subopt_pct": 1.57
+        },
+        "2": {
+          "exp_ratio": 0.1211,
+          "subopt_pct": 1.558
+        },
+        "16": {
+          "exp_ratio": 0.1156,
+          "subopt_pct": 1.0533
+        }
+      }
+    },
+    "bengaluru_xl": {
+      "haversine": {
+        "0": {
+          "exp_ratio": 1.0,
+          "subopt_pct": 0.0
+        }
+      },
+      "alt": {
+        "1": {
+          "exp_ratio": 0.4386,
+          "subopt_pct": 0.0
+        },
+        "2": {
+          "exp_ratio": 0.2852,
+          "subopt_pct": 0.0
+        },
+        "4": {
+          "exp_ratio": 0.1568,
+          "subopt_pct": 0.0
+        },
+        "8": {
+          "exp_ratio": 0.1049,
+          "subopt_pct": 0.0
+        },
+        "16": {
+          "exp_ratio": 0.0854,
+          "subopt_pct": 0.0
+        }
+      },
+      "const": {
+        "0": {
+          "exp_ratio": 0.553,
+          "subopt_pct": 0.0
+        },
+        "1": {
+          "exp_ratio": 0.0845,
+          "subopt_pct": 1.7042
+        },
+        "2": {
+          "exp_ratio": 0.0796,
+          "subopt_pct": 2.1253
+        },
+        "4": {
+          "exp_ratio": 0.097,
+          "subopt_pct": 1.4627
+        },
+        "8": {
+          "exp_ratio": 0.1052,
+          "subopt_pct": 1.1283
+        },
+        "16": {
+          "exp_ratio": 0.1145,
+          "subopt_pct": 0.7847
+        }
+      },
+      "mlp": {
+        "0": {
+          "exp_ratio": 0.4436,
+          "subopt_pct": 0.032
+        },
+        "2": {
+          "exp_ratio": 0.1153,
+          "subopt_pct": 1.533
+        },
+        "16": {
+          "exp_ratio": 0.0638,
+          "subopt_pct": 1.3262
+        }
+      },
+      "sage": {
+        "0": {
+          "exp_ratio": 0.3951,
+          "subopt_pct": 0.0637
+        },
+        "2": {
+          "exp_ratio": 0.1322,
+          "subopt_pct": 0.8781
+        },
+        "16": {
+          "exp_ratio": 0.0572,
+          "subopt_pct": 1.6912
+        }
+      },
+      "gat": {
+        "0": {
+          "exp_ratio": 0.4328,
+          "subopt_pct": 0.0662
+        },
+        "2": {
+          "exp_ratio": 0.1276,
+          "subopt_pct": 0.6708
+        },
+        "16": {
+          "exp_ratio": 0.0573,
+          "subopt_pct": 1.1702
+        }
+      }
+    }
+  },
   "best_zero_shot_learned": "sage",
   "first_budget_where_alt_beats_best_learned": 16
 }
